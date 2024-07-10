@@ -12,6 +12,7 @@ metadata = MetaData(
 
 db = SQLAlchemy(metadata=metadata)
 
+
 class Restaurant(db.Model, SerializerMixin):
     __tablename__ = "restaurants"
 
@@ -22,10 +23,11 @@ class Restaurant(db.Model, SerializerMixin):
     restaurant_pizzas = db.relationship('RestaurantPizza', backref='restaurant', cascade="all, delete-orphan")
     pizzas = association_proxy('restaurant_pizzas', 'pizza')
 
-    serialize_rules = ('-restaurant_pizzas',)
+    serialize_rules = ('-restaurant_pizzas.restaurant', '-restaurant_pizzas.pizza.restaurant_pizzas')
 
     def __repr__(self):
         return f"<Restaurant {self.name}>"
+
 
 class Pizza(db.Model, SerializerMixin):
     __tablename__ = "pizzas"
@@ -37,10 +39,11 @@ class Pizza(db.Model, SerializerMixin):
     restaurant_pizzas = db.relationship('RestaurantPizza', backref='pizza')
     restaurants = association_proxy('restaurant_pizzas', 'restaurant')
 
-    serialize_rules = ('-restaurant_pizzas',)
+    serialize_rules = ('-restaurant_pizzas.pizza', '-restaurant_pizzas.restaurant.restaurant_pizzas')
 
     def __repr__(self):
         return f"<Pizza {self.name}, {self.ingredients}>"
+
 
 class RestaurantPizza(db.Model, SerializerMixin):
     __tablename__ = "restaurant_pizzas"
@@ -48,15 +51,15 @@ class RestaurantPizza(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     price = db.Column(db.Integer, nullable=False)
 
-    pizza_id = db.Column(db.Integer, db.ForeignKey('pizzas.id'), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurants.id'), nullable=False)
+    pizza_id = db.Column(db.Integer, db.ForeignKey('pizzas.id'), nullable=False)
 
-    serialize_rules = ('-restaurant', 'pizza')
+    serialize_rules = ('-restaurant.restaurant_pizzas', '-pizza.restaurant_pizzas')
 
     @validates('price')
     def validate_price(self, key, price):
-        if not (1 <= price <= 30):
-            raise ValueError("Price must be between 1 and 30")
+        if price < 1 or price > 30:
+            raise ValueError('Price must be between 1 and 30.')
         return price
 
     def __repr__(self):
